@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg: #FAFAF8;
+  --surface: #FFFFFF;
+  --surface-alt: #F5F3EF;
+  --primary: #2D5A3D;
+  --primary-light: #E8F0EB;
+  --primary-hover: #234A31;
+  --accent: #C17F4E;
+  --accent-light: #FDF4EC;
+  --text: #1A1A1A;
+  --text-secondary: #6B7280;
+  --text-tertiary: #9CA3AF;
+  --border: #E8E6E1;
+  --danger: #DC4B4B;
+  --danger-light: #FEF2F2;
+  --warning: #D97706;
+  --warning-light: #FFFBEB;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', 'Noto Sans JP', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media print {
+  body * { visibility: hidden; }
+  .printable-report, .printable-report * { visibility: visible; }
+  .printable-report { position: absolute; top: 0; left: 0; width: 100%; }
+}

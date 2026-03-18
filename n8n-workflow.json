@@ -1,0 +1,144 @@
+{
+  "name": "MimamoAI - 異常パターン検知",
+  "nodes": [
+    {
+      "id": "node-webhook",
+      "name": "Record Saved Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mimamo-anomaly-detect",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "mimamo-anomaly-detect"
+    },
+    {
+      "id": "node-claude",
+      "name": "Claude API - Anomaly Detection",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [470, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-3-5-haiku-20241022\",\n  \"max_tokens\": 500,\n  \"temperature\": 0,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"以下の直近のケア記録から、医療的注意が必要な異常パターンを検出してください。\\n\\n記録データ:\\n{{ JSON.stringify($json.recent_records) }}\\n\\n異常パターンが検出された場合:\\n{\\\"detected\\\": true, \\\"pattern\\\": \\\"説明\\\", \\\"severity\\\": \\\"high\\\", \\\"suggestion\\\": \\\"推奨アクション\\\"}\\n\\n正常範囲内の場合:\\n{\\\"detected\\\": false}\\n\\nJSONのみを返してください。\"\n    }\n  ]\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-if",
+      "name": "Anomaly Detected?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.content[0].text }}",
+              "rightValue": "\"detected\": true",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-callback",
+      "name": "Callback to App",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [910, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.APP_CALLBACK_URL || 'https://mimamoai.web.app' }}/api/n8n/callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"record_id\": \"{{ $('Record Saved Webhook').item.json.record_id }}\",\n  \"user_id\": \"{{ $('Record Saved Webhook').item.json.user_id }}\",\n  \"care_recipient_id\": \"{{ $('Record Saved Webhook').item.json.care_recipient_id }}\",\n  \"alert\": {{ $json.content[0].text }}\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-respond-found",
+      "name": "Respond - Anomaly Found",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1130, 200],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"anomaly_detected\": true }"
+      }
+    },
+    {
+      "id": "node-respond-none",
+      "name": "Respond - No Anomaly",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [910, 400],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"anomaly_detected\": false }"
+      }
+    }
+  ],
+  "connections": {
+    "Record Saved Webhook": {
+      "main": [
+        [{ "node": "Claude API - Anomaly Detection", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude API - Anomaly Detection": {
+      "main": [
+        [{ "node": "Anomaly Detected?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Anomaly Detected?": {
+      "main": [
+        [{ "node": "Callback to App", "type": "main", "index": 0 }],
+        [{ "node": "Respond - No Anomaly", "type": "main", "index": 0 }]
+      ]
+    },
+    "Callback to App": {
+      "main": [
+        [{ "node": "Respond - Anomaly Found", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {}
+}
